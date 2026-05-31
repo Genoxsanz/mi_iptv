@@ -1,97 +1,149 @@
-const M3U_URL = "https://iptv-org.github.io/iptv/index.m3u";
+var M3U_URL = "https://iptv-org.github.io/iptv/index.m3u";
 
-const listScreen = document.getElementById("listScreen");
-const playerScreen = document.getElementById("playerScreen");
+var listScreen = document.getElementById("listScreen");
+var playerScreen = document.getElementById("playerScreen");
 
-const channelsDiv = document.getElementById("channels");
-const searchInput = document.getElementById("searchInput");
-const statusEl = document.getElementById("status");
+var channelsDiv = document.getElementById("channels");
+var searchInput = document.getElementById("searchInput");
+var statusEl = document.getElementById("status");
 
-const video = document.getElementById("video");
-const playerStatus = document.getElementById("playerStatus");
+var video = document.getElementById("video");
+var playerStatus = document.getElementById("playerStatus");
 
-const channelToast = document.getElementById("channelToast");
-const channelToastLogo = document.getElementById("channelToastLogo");
-const channelToastName = document.getElementById("channelToastName");
+var channelToast = document.getElementById("channelToast");
+var channelToastLogo = document.getElementById("channelToastLogo");
+var channelToastName = document.getElementById("channelToastName");
 
-const filterButtons = document.querySelectorAll(".filter-btn");
+var filterButtons = document.querySelectorAll(".filter-btn");
 
-let allChannels = [];
-let visibleChannels = [];
-let currentChannel = null;
-let currentIndex = 0;
-let currentFilter = "all";
+var allChannels = [];
+var visibleChannels = [];
+var currentChannel = null;
+var currentIndex = 0;
+var currentFilter = "all";
 
-let hls = null;
-let playToken = 0;
-let toastTimer = null;
-let statusTimer = null;
+var hls = null;
+var playToken = 0;
+var toastTimer = null;
+var statusTimer = null;
 
-let playerPageOpen = false;
-let ignoreNextPopState = false;
+var playerPageOpen = false;
+var ignoreNextPopState = false;
 
-const FAVORITES_KEY = "genox_iptv_favorites";
-let favorites = loadFavorites();
+var FAVORITES_KEY = "genox_iptv_favorites";
+var favorites = loadFavorites();
 
 /* =========================
-   CARGA DE LISTA
+   CARGA COMPATIBLE CON TV BOX
 ========================= */
 
-async function loadM3U() {
+function cargarTextoCompatible(url, onOk, onError) {
   try {
-    statusEl.textContent = "Cargando lista global...";
-    channelsDiv.innerHTML = "";
+    var xhr = new XMLHttpRequest();
 
-    const response = await fetch(M3U_URL, {
-      cache: "no-store"
-    });
+    var finalUrl = url;
 
-    if (!response.ok) {
-      throw new Error("No se pudo cargar la lista M3U");
+    if (finalUrl.indexOf("?") === -1) {
+      finalUrl += "?_=" + new Date().getTime();
+    } else {
+      finalUrl += "&_=" + new Date().getTime();
     }
 
-    const text = await response.text();
+    xhr.open("GET", finalUrl, true);
+    xhr.timeout = 30000;
 
-    allChannels = parseM3U(text)
-      .map(applyChannelRules)
-      .filter(channel => !channel.hide)
-      .sort(sortChannels);
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState === 4) {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          onOk(xhr.responseText);
+        } else {
+          onError("Error HTTP al cargar la lista: " + xhr.status);
+        }
+      }
+    };
 
-    applyFilters();
+    xhr.ontimeout = function () {
+      onError("La TV Box tardó demasiado cargando la lista.");
+    };
 
-    statusEl.textContent = `${allChannels.length} canales cargados · Paraguay primero`;
+    xhr.onerror = function () {
+      onError("No se pudo cargar la lista IPTV. Puede ser problema de red, WebView viejo o bloqueo HTTPS.");
+    };
 
-    setTimeout(() => {
-      focusChannel(0);
-    }, 200);
-
+    xhr.send();
   } catch (error) {
-    console.error(error);
-    statusEl.textContent = "Error al cargar la lista IPTV.";
+    onError("Error interno cargando la lista: " + error.message);
   }
 }
 
-function parseM3U(text) {
-  const lines = text.split(/\r?\n/);
-  const result = [];
+function loadM3U() {
+  statusEl.textContent = "Cargando lista global...";
+  channelsDiv.innerHTML = "";
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i].trim();
+  cargarTextoCompatible(
+    M3U_URL,
+    function (text) {
+      try {
+        allChannels = parseM3U(text)
+          .map(function (channel) {
+            return applyChannelRules(channel);
+          })
+          .filter(function (channel) {
+            return !channel.hide;
+          })
+          .sort(sortChannels);
+
+        applyFilters();
+
+        statusEl.textContent = allChannels.length + " canales cargados · Paraguay primero";
+
+        setTimeout(function () {
+          focusChannel(0);
+        }, 200);
+      } catch (error) {
+        console.error(error);
+        mostrarErrorLista("La lista se descargó, pero hubo un error al procesarla.");
+      }
+    },
+    function (error) {
+      console.error(error);
+      mostrarErrorLista(error);
+    }
+  );
+}
+
+function mostrarErrorLista(mensaje) {
+  statusEl.textContent = "Error al cargar la lista IPTV.";
+
+  channelsDiv.innerHTML =
+    '<div class="status" style="background:#7f1d1d;color:white;padding:24px;border-radius:16px;font-size:24px;">' +
+    escapeHtml(mensaje) +
+    "<br><br>" +
+    "Prueba actualizar Android System WebView o Chrome en la TV Box." +
+    "</div>";
+}
+
+function parseM3U(text) {
+  var lines = text.split(/\r?\n/);
+  var result = [];
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
 
     if (!line.startsWith("#EXTINF")) continue;
 
-    const originalName = line.split(",").pop().trim();
-    const cleanName = cleanChannelName(originalName);
+    var originalName = line.split(",").pop().trim();
+    var cleanName = cleanChannelName(originalName);
 
-    const tvgId = getAttr(line, "tvg-id");
-    const logo = getAttr(line, "tvg-logo");
-    const group = getAttr(line, "group-title") || "Sin categoría";
-    const country = getAttr(line, "tvg-country");
+    var tvgId = getAttr(line, "tvg-id");
+    var logo = getAttr(line, "tvg-logo");
+    var group = getAttr(line, "group-title") || "Sin categoría";
+    var country = getAttr(line, "tvg-country");
 
-    let url = "";
+    var url = "";
 
-    for (let j = i + 1; j < lines.length; j++) {
-      const next = lines[j].trim();
+    for (var j = i + 1; j < lines.length; j++) {
+      var next = lines[j].trim();
 
       if (next && !next.startsWith("#")) {
         url = next;
@@ -101,14 +153,14 @@ function parseM3U(text) {
 
     if (!url.startsWith("http")) continue;
 
-    const channel = {
-      originalName,
+    var channel = {
+      originalName: originalName,
       name: cleanName,
-      tvgId,
-      logo,
-      group,
-      country,
-      url,
+      tvgId: tvgId,
+      logo: logo,
+      group: group,
+      country: country,
+      url: url,
       hide: false
     };
 
@@ -121,21 +173,22 @@ function parseM3U(text) {
 }
 
 function getAttr(line, attr) {
-  const match = line.match(new RegExp(`${attr}="([^"]*)"`, "i"));
+  var regex = new RegExp(attr + '="([^"]*)"', "i");
+  var match = line.match(regex);
   return match ? match[1] : "";
 }
 
 function removeDuplicates(list) {
-  const seen = new Set();
+  var seen = {};
 
-  return list.filter(channel => {
-    const key = channel.url;
+  return list.filter(function (channel) {
+    var key = channel.url;
 
-    if (seen.has(key)) {
+    if (seen[key]) {
       return false;
     }
 
-    seen.add(key);
+    seen[key] = true;
     return true;
   });
 }
@@ -168,9 +221,11 @@ function normalize(value) {
 ========================= */
 
 function applyChannelRules(channel) {
-  const rules = window.CHANNEL_RULES || [];
+  var rules = window.CHANNEL_RULES || [];
 
-  for (const rule of rules) {
+  for (var i = 0; i < rules.length; i++) {
+    var rule = rules[i];
+
     if (!matchesRule(channel, rule)) continue;
 
     if (rule.hide === true) {
@@ -210,11 +265,11 @@ function matchesRule(channel, rule) {
     return true;
   }
 
-  if (rule.matchNameContains && normalize(channel.originalName).includes(normalize(rule.matchNameContains))) {
+  if (rule.matchNameContains && normalize(channel.originalName).indexOf(normalize(rule.matchNameContains)) !== -1) {
     return true;
   }
 
-  if (rule.matchNameContains && normalize(channel.name).includes(normalize(rule.matchNameContains))) {
+  if (rule.matchNameContains && normalize(channel.name).indexOf(normalize(rule.matchNameContains)) !== -1) {
     return true;
   }
 
@@ -222,7 +277,7 @@ function matchesRule(channel, rule) {
     return true;
   }
 
-  if (rule.matchUrlContains && channel.url.includes(rule.matchUrlContains)) {
+  if (rule.matchUrlContains && channel.url.indexOf(rule.matchUrlContains) !== -1) {
     return true;
   }
 
@@ -234,7 +289,7 @@ function matchesRule(channel, rule) {
 ========================= */
 
 function isParaguay(channel) {
-  const text = normalize([
+  var text = normalize([
     channel.name,
     channel.originalName,
     channel.tvgId,
@@ -243,22 +298,22 @@ function isParaguay(channel) {
   ].join(" "));
 
   return (
-    text.includes(".py") ||
-    text.includes("paraguay") ||
-    text.includes(" py ") ||
-    text.includes(";py") ||
-    text.includes("py;") ||
-    text.includes("snt") ||
-    text.includes("telefuturo") ||
-    text.includes("latele") ||
-    text.includes("la tele") ||
-    text.includes("trece") ||
-    text.includes("unicanal") ||
-    text.includes("c9n") ||
-    text.includes("npy") ||
-    text.includes("abc tv") ||
-    text.includes("paravision") ||
-    text.includes("paravisión")
+    text.indexOf(".py") !== -1 ||
+    text.indexOf("paraguay") !== -1 ||
+    text.indexOf(" py ") !== -1 ||
+    text.indexOf(";py") !== -1 ||
+    text.indexOf("py;") !== -1 ||
+    text.indexOf("snt") !== -1 ||
+    text.indexOf("telefuturo") !== -1 ||
+    text.indexOf("latele") !== -1 ||
+    text.indexOf("la tele") !== -1 ||
+    text.indexOf("trece") !== -1 ||
+    text.indexOf("unicanal") !== -1 ||
+    text.indexOf("c9n") !== -1 ||
+    text.indexOf("npy") !== -1 ||
+    text.indexOf("abc tv") !== -1 ||
+    text.indexOf("paravision") !== -1 ||
+    text.indexOf("paravisión") !== -1
   );
 }
 
@@ -275,20 +330,20 @@ function sortChannels(a, b) {
 ========================= */
 
 function applyFilters() {
-  const query = normalize(searchInput.value);
+  var query = normalize(searchInput.value);
 
-  visibleChannels = allChannels.filter(channel => {
-    const matchesSearch =
+  visibleChannels = allChannels.filter(function (channel) {
+    var matchesSearch =
       !query ||
-      normalize(channel.name).includes(query) ||
-      normalize(channel.originalName).includes(query) ||
-      normalize(channel.group).includes(query) ||
-      normalize(channel.tvgId).includes(query);
+      normalize(channel.name).indexOf(query) !== -1 ||
+      normalize(channel.originalName).indexOf(query) !== -1 ||
+      normalize(channel.group).indexOf(query) !== -1 ||
+      normalize(channel.tvgId).indexOf(query) !== -1;
 
-    const matchesFilter =
+    var matchesFilter =
       currentFilter === "all" ||
       (currentFilter === "py" && channel.isParaguay) ||
-      (currentFilter === "favorites" && favorites.has(channelKey(channel)));
+      (currentFilter === "favorites" && favoritesHas(channelKey(channel)));
 
     return matchesSearch && matchesFilter;
   });
@@ -299,75 +354,86 @@ function applyFilters() {
 function renderChannels() {
   channelsDiv.innerHTML = "";
 
-  statusEl.textContent = `${visibleChannels.length} canales encontrados`;
+  statusEl.textContent = visibleChannels.length + " canales encontrados";
 
   if (visibleChannels.length === 0) {
-    channelsDiv.innerHTML = `<div class="status">No hay canales para mostrar.</div>`;
+    channelsDiv.innerHTML = '<div class="status">No hay canales para mostrar.</div>';
     return;
   }
 
-  const fragment = document.createDocumentFragment();
+  var fragment = document.createDocumentFragment();
+  var max = Math.min(visibleChannels.length, 1000);
 
-  visibleChannels.slice(0, 1000).forEach((channel, index) => {
-    const button = document.createElement("button");
+  for (var i = 0; i < max; i++) {
+    var channel = visibleChannels[i];
+
+    var button = document.createElement("button");
     button.className = "channel";
-    button.dataset.index = String(index);
+    button.setAttribute("data-index", String(i));
 
     if (currentChannel && currentChannel.url === channel.url) {
       button.classList.add("active");
     }
 
-    const favoriteMark = favorites.has(channelKey(channel)) ? "★" : "";
-    const logoHtml = getLogoHtml(channel);
+    var favoriteMark = favoritesHas(channelKey(channel)) ? "★" : "";
+    var logoHtml = getLogoHtml(channel);
 
-    button.innerHTML = `
-      ${logoHtml}
-      <div>
-        <div class="channel-name">${escapeHtml(channel.name)}</div>
-        <div class="channel-group">${escapeHtml(channel.group)}</div>
-      </div>
-      <div class="badge">${favoriteMark}</div>
-    `;
+    button.innerHTML =
+      logoHtml +
+      "<div>" +
+      '<div class="channel-name">' + escapeHtml(channel.name) + "</div>" +
+      '<div class="channel-group">' + escapeHtml(channel.group) + "</div>" +
+      "</div>" +
+      '<div class="badge">' + favoriteMark + "</div>";
 
-    button.addEventListener("click", () => {
-      currentIndex = index;
-      openPlayerPage(channel);
-    });
-
-    button.addEventListener("focus", () => {
-      currentIndex = index;
-    });
+    button.addEventListener("click", createChannelClickHandler(channel, i));
+    button.addEventListener("focus", createChannelFocusHandler(i));
 
     fragment.appendChild(button);
-  });
+  }
 
   channelsDiv.appendChild(fragment);
 }
 
+function createChannelClickHandler(channel, index) {
+  return function () {
+    currentIndex = index;
+    openPlayerPage(channel);
+  };
+}
+
+function createChannelFocusHandler(index) {
+  return function () {
+    currentIndex = index;
+  };
+}
+
 function getLogoHtml(channel) {
   if (channel.logo) {
-    return `
-      <img
-        class="logo"
-        src="${escapeHtml(channel.logo)}"
-        alt=""
-        loading="lazy"
-        referrerpolicy="no-referrer"
-        onerror="this.outerHTML='<div class=&quot;logo-fallback&quot;>${getInitials(channel.name)}</div>'"
-      >
-    `;
+    return (
+      '<img class="logo" ' +
+      'src="' + escapeHtml(channel.logo) + '" ' +
+      'alt="" ' +
+      'loading="lazy" ' +
+      'referrerpolicy="no-referrer" ' +
+      'onerror="this.outerHTML=\'<div class=&quot;logo-fallback&quot;>' + getInitials(channel.name) + '</div>\'">'
+    );
   }
 
-  return `<div class="logo-fallback">${getInitials(channel.name)}</div>`;
+  return '<div class="logo-fallback">' + getInitials(channel.name) + "</div>";
 }
 
 function getInitials(name) {
   return escapeHtml(
     String(name || "?")
       .split(" ")
-      .filter(Boolean)
+      .filter(function (word) {
+        return !!word;
+      })
       .slice(0, 2)
-      .map(word => word[0])
+      .map(function (word) {
+        return word.charAt(0);
+      })
       .join("")
       .toUpperCase()
   );
@@ -391,7 +457,10 @@ function openPlayerPage(channel) {
   playChannel(channel);
 }
 
-function closePlayerPage({ fromPopState = false } = {}) {
+function closePlayerPage(options) {
+  options = options || {};
+  var fromPopState = options.fromPopState === true;
+
   if (!playerPageOpen) return;
 
   playerPageOpen = false;
@@ -406,12 +475,12 @@ function closePlayerPage({ fromPopState = false } = {}) {
     history.back();
   }
 
-  setTimeout(() => {
+  setTimeout(function () {
     focusCurrentOrFirst();
   }, 100);
 }
 
-window.addEventListener("popstate", () => {
+window.addEventListener("popstate", function () {
   if (ignoreNextPopState) {
     ignoreNextPopState = false;
     return;
@@ -428,7 +497,7 @@ window.addEventListener("popstate", () => {
 
 function playChannel(channel) {
   playToken++;
-  const localToken = playToken;
+  var localToken = playToken;
 
   showChannelToast(channel);
   showPlayerStatus("Cargando canal...");
@@ -437,32 +506,32 @@ function playChannel(channel) {
 
   if (window.Hls && Hls.isSupported()) {
     hls = new Hls({
-      enableWorker: true,
-      lowLatencyMode: true,
-      backBufferLength: 15,
-      maxBufferLength: 20,
-      maxMaxBufferLength: 30,
-      manifestLoadingTimeOut: 10000,
-      levelLoadingTimeOut: 10000,
-      fragLoadingTimeOut: 15000
+      enableWorker: false,
+      lowLatencyMode: false,
+      backBufferLength: 10,
+      maxBufferLength: 15,
+      maxMaxBufferLength: 20,
+      manifestLoadingTimeOut: 15000,
+      levelLoadingTimeOut: 15000,
+      fragLoadingTimeOut: 20000
     });
 
-    const localHls = hls;
+    var localHls = hls;
 
     localHls.loadSource(channel.url);
     localHls.attachMedia(video);
 
-    localHls.on(Hls.Events.MANIFEST_PARSED, () => {
+    localHls.on(Hls.Events.MANIFEST_PARSED, function () {
       if (localToken !== playToken) return;
 
       showPlayerStatus("Reproduciendo");
 
-      video.play().catch(() => {
+      video.play().catch(function () {
         showPlayerStatus("Presiona OK para reproducir");
       });
     });
 
-    localHls.on(Hls.Events.ERROR, (event, data) => {
+    localHls.on(Hls.Events.ERROR, function (event, data) {
       if (localToken !== playToken) return;
 
       console.warn("HLS error:", data);
@@ -489,12 +558,12 @@ function playChannel(channel) {
     video.src = channel.url;
     video.load();
 
-    video.onloadedmetadata = () => {
+    video.onloadedmetadata = function () {
       if (localToken !== playToken) return;
 
       showPlayerStatus("Reproduciendo");
 
-      video.play().catch(() => {
+      video.play().catch(function () {
         showPlayerStatus("Presiona OK para reproducir");
       });
     };
@@ -528,21 +597,17 @@ function showChannelToast(channel) {
   channelToastName.textContent = channel.name;
 
   if (channel.logo) {
-    channelToastLogo.innerHTML = `
-      <img
-        class="channel-toast-logo"
-        src="${escapeHtml(channel.logo)}"
-        alt=""
-        referrerpolicy="no-referrer"
-        onerror="this.outerHTML='<div class=&quot;channel-toast-fallback&quot;>${getInitials(channel.name)}</div>'"
-      >
-    `;
+    channelToastLogo.innerHTML =
+      '<img class="channel-toast-logo" ' +
+      'src="' + escapeHtml(channel.logo) + '" ' +
+      'alt="" ' +
+      'referrerpolicy="no-referrer" ' +
+      'onerror="this.outerHTML=\'<div class=&quot;channel-toast-fallback&quot;>' + getInitials(channel.name) + '</div>\'">';
   } else {
-    channelToastLogo.innerHTML = `
-      <div class="channel-toast-fallback">
-        ${getInitials(channel.name)}
-      </div>
-    `;
+    channelToastLogo.innerHTML =
+      '<div class="channel-toast-fallback">' +
+      getInitials(channel.name) +
+      "</div>";
   }
 
   channelToast.classList.add("show");
@@ -551,7 +616,7 @@ function showChannelToast(channel) {
     clearTimeout(toastTimer);
   }
 
-  toastTimer = setTimeout(() => {
+  toastTimer = setTimeout(function () {
     channelToast.classList.remove("show");
   }, 3000);
 }
@@ -564,7 +629,7 @@ function showPlayerStatus(message) {
     clearTimeout(statusTimer);
   }
 
-  statusTimer = setTimeout(() => {
+  statusTimer = setTimeout(function () {
     playerStatus.classList.remove("show");
   }, 3000);
 }
@@ -574,30 +639,47 @@ function showPlayerStatus(message) {
 ========================= */
 
 function channelKey(channel) {
-  return `${channel.name}|${channel.url}`;
+  return channel.name + "|" + channel.url;
 }
 
 function loadFavorites() {
   try {
-    return new Set(JSON.parse(localStorage.getItem(FAVORITES_KEY) || "[]"));
-  } catch {
-    return new Set();
+    var data = JSON.parse(localStorage.getItem(FAVORITES_KEY) || "[]");
+    return data;
+  } catch (error) {
+    return [];
   }
 }
 
+function favoritesHas(key) {
+  return favorites.indexOf(key) !== -1;
+}
+
+function favoritesAdd(key) {
+  if (!favoritesHas(key)) {
+    favorites.push(key);
+  }
+}
+
+function favoritesDelete(key) {
+  favorites = favorites.filter(function (item) {
+    return item !== key;
+  });
+}
+
 function saveFavorites() {
-  localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favorites]));
+  localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites));
 }
 
 function toggleFavorite() {
   if (!currentChannel) return;
 
-  const key = channelKey(currentChannel);
+  var key = channelKey(currentChannel);
 
-  if (favorites.has(key)) {
-    favorites.delete(key);
+  if (favoritesHas(key)) {
+    favoritesDelete(key);
   } else {
-    favorites.add(key);
+    favoritesAdd(key);
   }
 
   saveFavorites();
@@ -609,30 +691,34 @@ function toggleFavorite() {
 ========================= */
 
 function focusChannel(index) {
-  const buttons = Array.from(document.querySelectorAll(".channel"));
+  var buttons = Array.prototype.slice.call(document.querySelectorAll(".channel"));
   if (buttons.length === 0) return;
 
-  const safeIndex = Math.max(0, Math.min(index, buttons.length - 1));
+  var safeIndex = Math.max(0, Math.min(index, buttons.length - 1));
   currentIndex = safeIndex;
 
   buttons[safeIndex].focus();
-  buttons[safeIndex].scrollIntoView({
-    block: "nearest"
-  });
+
+  if (buttons[safeIndex].scrollIntoView) {
+    buttons[safeIndex].scrollIntoView({
+      block: "nearest"
+    });
+  }
 }
 
 function focusCurrentOrFirst() {
   if (currentChannel) {
-    const buttons = Array.from(document.querySelectorAll(".channel"));
+    var buttons = Array.prototype.slice.call(document.querySelectorAll(".channel"));
 
-    const index = buttons.findIndex(button => {
-      const channel = visibleChannels[Number(button.dataset.index)];
-      return channel && channel.url === currentChannel.url;
-    });
+    for (var i = 0; i < buttons.length; i++) {
+      var button = buttons[i];
+      var index = Number(button.getAttribute("data-index"));
+      var channel = visibleChannels[index];
 
-    if (index >= 0) {
-      focusChannel(index);
-      return;
+      if (channel && channel.url === currentChannel.url) {
+        focusChannel(i);
+        return;
+      }
     }
   }
 
@@ -656,26 +742,35 @@ function escapeHtml(value) {
    EVENTOS
 ========================= */
 
-searchInput.addEventListener("input", () => {
+searchInput.addEventListener("input", function () {
   applyFilters();
 });
 
-filterButtons.forEach(button => {
-  button.addEventListener("click", () => {
-    filterButtons.forEach(btn => btn.classList.remove("active"));
+for (var fb = 0; fb < filterButtons.length; fb++) {
+  filterButtons[fb].addEventListener("click", createFilterClickHandler(filterButtons[fb]));
+}
+
+function createFilterClickHandler(button) {
+  return function () {
+    for (var i = 0; i < filterButtons.length; i++) {
+      filterButtons[i].classList.remove("active");
+    }
+
     button.classList.add("active");
 
-    currentFilter = button.dataset.filter;
+    currentFilter = button.getAttribute("data-filter");
     applyFilters();
 
-    setTimeout(() => focusChannel(0), 50);
-  });
-});
+    setTimeout(function () {
+      focusChannel(0);
+    }, 50);
+  };
+}
 
-document.addEventListener("keydown", event => {
-  const active = document.activeElement;
-  const isInput = active === searchInput;
-  const isPlayerOpen = !playerScreen.classList.contains("hidden");
+document.addEventListener("keydown", function (event) {
+  var active = document.activeElement;
+  var isInput = active === searchInput;
+  var isPlayerOpen = !playerScreen.classList.contains("hidden");
 
   /*
     PÁGINA DEL REPRODUCTOR
@@ -693,7 +788,7 @@ document.addEventListener("keydown", event => {
 
     if (event.key === "Enter") {
       event.preventDefault();
-      video.play().catch(() => {});
+      video.play().catch(function () {});
       return;
     }
 
@@ -739,9 +834,9 @@ document.addEventListener("keydown", event => {
       return;
     }
 
-    if (active?.classList?.contains("channel")) {
-      const index = Number(active.dataset.index);
-      const channel = visibleChannels[index];
+    if (active && active.classList && active.classList.contains("channel")) {
+      var index = Number(active.getAttribute("data-index"));
+      var channel = visibleChannels[index];
 
       if (channel) {
         openPlayerPage(channel);
@@ -751,7 +846,7 @@ document.addEventListener("keydown", event => {
     }
   }
 
-  if (event.key.toLowerCase() === "s" && !isInput) {
+  if (event.key && event.key.toLowerCase() === "s" && !isInput) {
     event.preventDefault();
     searchInput.focus();
     return;
@@ -776,13 +871,13 @@ document.addEventListener("keydown", event => {
   }
 });
 
-video.addEventListener("waiting", () => {
+video.addEventListener("waiting", function () {
   if (currentChannel) {
     showPlayerStatus("Buffering...");
   }
 });
 
-video.addEventListener("playing", () => {
+video.addEventListener("playing", function () {
   if (currentChannel) {
     showPlayerStatus("Reproduciendo");
   }

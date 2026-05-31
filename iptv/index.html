@@ -6,7 +6,7 @@
 
   <title>TV PARAGUAY</title>
 
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css?v=3" />
 </head>
 <body>
 
@@ -17,20 +17,7 @@
         <h1>TV PARAGUAY</h1>
         <p id="status">Cargando canales...</p>
       </div>
-
-      <input
-        id="searchInput"
-        type="text"
-        placeholder="Buscar canal..."
-        autocomplete="off"
-      />
     </header>
-
-    <section class="filters">
-      <button class="filter-btn active" data-filter="all">Todos</button>
-      <button class="filter-btn" data-filter="py">Paraguay</button>
-      <button class="filter-btn" data-filter="favorites">Favoritos</button>
-    </section>
 
     <section id="channels" class="channels"></section>
   </main>
@@ -50,7 +37,7 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-  <script src="channel-rules.js"></script>
-<script src="app.js?v=2"></script>
+  <script src="channel-rules.js?v=3"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>TV PARAGUAY</title>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- PÁGINA 1: LISTA DE CANALES -->
+  <main id="listScreen" class="screen list-screen">
+    <header class="list-header">
+      <div class="brand">
+        <h1>TV PARAGUAY</h1>
+        <p id="status">Cargando canales...</p>
+      </div>
+
+      <input
+        id="searchInput"
+        type="text"
+        placeholder="Buscar canal..."
+        autocomplete="off"
+      />
+    </header>
+
+    <section class="filters">
+      <button class="filter-btn active" data-filter="all">Todos</button>
+      <button class="filter-btn" data-filter="py">Paraguay</button>
+      <button class="filter-btn" data-filter="favorites">Favoritos</button>
+    </section>
+
+    <section id="channels" class="channels"></section>
+  </main>
+
+  <!-- PÁGINA 2: REPRODUCTOR -->
+  <main id="playerScreen" class="screen player-screen hidden">
+    <video id="video" autoplay playsinline></video>
+
+    <div id="channelToast" class="channel-toast">
+      <div id="channelToastLogo"></div>
+      <div id="channelToastName" class="channel-toast-name">Canal</div>
+    </div>
+
+    <div id="playerStatus" class="player-status">
+      Cargando...
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+  <script src="channel-rules.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -25,7 +25,7 @@ body {
 }
 
 body {
-  background: radial-gradient(circle at top, #17213a 0%, #05070d 60%);
+  background: #05070d;
 }
 
 .hidden {
@@ -43,154 +43,103 @@ body {
 
 .list-screen {
   display: grid;
-  grid-template-rows: auto auto 1fr;
-  padding: 22px;
+  grid-template-rows: auto 1fr;
+  padding: 18px;
 }
 
 .list-header {
-  display: grid;
-  grid-template-columns: 1fr 430px;
-  gap: 22px;
+  display: flex;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .brand h1 {
   margin: 0;
-  font-size: 46px;
+  font-size: 40px;
   line-height: 1;
   letter-spacing: -1px;
 }
 
 #status {
-  margin: 9px 0 0;
+  margin: 8px 0 0;
   color: var(--muted);
   font-size: 18px;
 }
 
-#searchInput {
-  width: 100%;
-  height: 62px;
-  border-radius: 18px;
-  border: 4px solid transparent;
-  outline: none;
-  background: #070b13;
-  color: white;
-  font-size: 22px;
-  padding: 0 20px;
-}
-
-#searchInput:focus {
-  border-color: var(--focus);
-  box-shadow: 0 0 0 5px rgba(0, 170, 255, 0.22);
-}
-
-.filters {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.filter-btn {
-  border: 4px solid transparent;
-  outline: none;
-  cursor: pointer;
-  border-radius: 18px;
-  background: var(--panel2);
-  color: white;
-  font-size: 21px;
-  font-weight: bold;
-  padding: 14px 24px;
-}
-
-.filter-btn.active {
-  background: #064c78;
-}
-
-.filter-btn:focus {
-  border-color: var(--focus);
-  box-shadow: 0 0 0 5px rgba(0, 170, 255, 0.22);
-}
-
 .channels {
   overflow-y: auto;
-  padding: 6px 12px 24px 6px;
-  scroll-behavior: smooth;
+  padding: 4px 8px 24px 4px;
+  scroll-behavior: auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
+/* Canal simple para TV Box */
 .channel {
   width: 100%;
-  min-height: 108px;
-  display: grid;
-  grid-template-columns: 82px 1fr 42px;
+  min-height: 82px;
+  display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
   border: 4px solid transparent;
-  border-radius: 22px;
+  border-radius: 14px;
   background: rgba(16, 24, 39, 0.96);
   color: white;
   outline: none;
   cursor: pointer;
   text-align: left;
-  padding: 15px 20px;
-}
-
-.channel:hover {
-  background: #17243a;
+  padding: 10px 14px;
+  overflow: hidden;
 }
 
 .channel:focus {
   background: #12395a;
   border-color: var(--focus);
-  transform: scale(1.018);
-  box-shadow: 0 0 0 5px rgba(0, 170, 255, 0.22);
-  z-index: 5;
+  box-shadow: 0 0 0 4px rgba(0, 170, 255, 0.22);
 }
 
 .channel.active {
   border-color: var(--active);
 }
 
-.logo {
-  width: 76px;
-  height: 76px;
-  object-fit: contain;
+.logo,
+.logo-fallback {
+  width: 62px;
+  height: 62px;
+  min-width: 62px;
+  max-width: 62px;
+  border-radius: 10px;
   background: #1a2435;
-  border-radius: 18px;
-  padding: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.logo {
+  object-fit: contain;
+  padding: 5px;
 }
 
 .logo-fallback {
-  width: 76px;
-  height: 76px;
-  display: grid;
-  place-items: center;
-  background: #1a2435;
-  border-radius: 18px;
   color: #d5def2;
-  font-size: 25px;
+  font-size: 22px;
   font-weight: bold;
+}
+
+.channel-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .channel-name {
-  font-size: 30px;
+  font-size: 27px;
   font-weight: bold;
   line-height: 1.15;
-}
-
-.channel-group {
-  margin-top: 7px;
-  color: var(--muted);
-  font-size: 18px;
-}
-
-.badge {
-  text-align: center;
-  font-size: 27px;
-  color: #ffd166;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* =========================
@@ -246,26 +195,26 @@ video::-webkit-media-controls-fullscreen-button {
   display: none !important;
 }
 
-/* Cuadro grande del canal */
+/* Cuadro del canal */
 .channel-toast {
   position: absolute;
-  left: 48px;
-  bottom: 48px;
-  width: 660px;
-  min-height: 160px;
+  left: 36px;
+  bottom: 36px;
+  width: 560px;
+  min-height: 120px;
   display: grid;
-  grid-template-columns: 124px 1fr;
+  grid-template-columns: 90px 1fr;
   align-items: center;
-  gap: 26px;
-  padding: 26px 32px;
-  border-radius: 26px;
+  gap: 20px;
+  padding: 20px 24px;
+  border-radius: 20px;
   background: rgba(0, 0, 0, 0.86);
-  border-left: 11px solid #00aaff;
+  border-left: 9px solid #00aaff;
   color: white;
-  box-shadow: 0 20px 52px rgba(0, 0, 0, 0.68);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.65);
   opacity: 0;
-  transform: translateY(24px);
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transform: translateY(20px);
+  transition: opacity 0.22s ease, transform 0.22s ease;
   pointer-events: none;
   z-index: 20;
 }
@@ -275,29 +224,30 @@ video::-webkit-media-controls-fullscreen-button {
   transform: translateY(0);
 }
 
-.channel-toast-logo {
-  width: 116px;
-  height: 116px;
-  object-fit: contain;
+.channel-toast-logo,
+.channel-toast-fallback {
+  width: 82px;
+  height: 82px;
   background: #1a2435;
-  border-radius: 24px;
-  padding: 10px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.channel-toast-logo {
+  object-fit: contain;
+  padding: 8px;
 }
 
 .channel-toast-fallback {
-  width: 116px;
-  height: 116px;
-  display: grid;
-  place-items: center;
-  background: #1a2435;
-  border-radius: 24px;
   color: #d5def2;
-  font-size: 38px;
+  font-size: 32px;
   font-weight: bold;
 }
 
 .channel-toast-name {
-  font-size: 44px;
+  font-size: 36px;
   font-weight: bold;
   line-height: 1.12;
   overflow: hidden;
@@ -308,15 +258,15 @@ video::-webkit-media-controls-fullscreen-button {
 
 .player-status {
   position: absolute;
-  right: 30px;
-  top: 28px;
-  padding: 13px 20px;
-  border-radius: 15px;
-  background: rgba(0, 0, 0, 0.68);
+  right: 24px;
+  top: 24px;
+  padding: 12px 18px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.72);
   color: #dbe7ff;
-  font-size: 19px;
+  font-size: 18px;
   opacity: 0;
-  transition: opacity 0.25s ease;
+  transition: opacity 0.22s ease;
   z-index: 21;
 }
 
@@ -326,21 +276,39 @@ video::-webkit-media-controls-fullscreen-button {
 
 /* Para pantallas pequeñas o resolución baja */
 @media (max-width: 900px) {
-  .list-header {
-    grid-template-columns: 1fr;
+  .list-screen {
+    padding: 14px;
   }
 
   .brand h1 {
-    font-size: 36px;
+    font-size: 32px;
+  }
+
+  #status {
+    font-size: 16px;
+  }
+
+  .channel {
+    min-height: 72px;
+    gap: 12px;
+    padding: 8px 12px;
+  }
+
+  .logo,
+  .logo-fallback {
+    width: 54px;
+    height: 54px;
+    min-width: 54px;
+    max-width: 54px;
   }
 
   .channel-name {
-    font-size: 24px;
+    font-size: 23px;
   }
 
   .channel-toast {
-    width: calc(100vw - 60px);
-    left: 30px;
-    bottom: 30px;
+    width: calc(100vw - 48px);
+    left: 24px;
+    bottom: 24px;
   }
 }

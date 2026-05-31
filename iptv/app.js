@@ -1,10 +1,9 @@
-var M3U_URL = "https://iptv-org.github.io/iptv/index.m3u";
+var M3U_URL = "https://iptv-org.github.io/iptv/countries/py.m3u";
 
 var listScreen = document.getElementById("listScreen");
 var playerScreen = document.getElementById("playerScreen");
 
 var channelsDiv = document.getElementById("channels");
-var searchInput = document.getElementById("searchInput");
 var statusEl = document.getElementById("status");
 
 var video = document.getElementById("video");
@@ -14,13 +13,10 @@ var channelToast = document.getElementById("channelToast");
 var channelToastLogo = document.getElementById("channelToastLogo");
 var channelToastName = document.getElementById("channelToastName");
 
-var filterButtons = document.querySelectorAll(".filter-btn");
-
 var allChannels = [];
 var visibleChannels = [];
 var currentChannel = null;
 var currentIndex = 0;
-var currentFilter = "all";
 
 var hls = null;
 var playToken = 0;
@@ -29,9 +25,6 @@ var statusTimer = null;
 
 var playerPageOpen = false;
 var ignoreNextPopState = false;
-
-var FAVORITES_KEY = "genox_iptv_favorites";
-var favorites = loadFavorites();
 
 /* =========================
    CARGA COMPATIBLE CON TV BOX
@@ -77,7 +70,7 @@ function cargarTextoCompatible(url, onOk, onError) {
 }
 
 function loadM3U() {
-  statusEl.textContent = "Cargando lista global...";
+  statusEl.textContent = "Cargando canales de Paraguay...";
   channelsDiv.innerHTML = "";
 
   cargarTextoCompatible(
@@ -86,16 +79,21 @@ function loadM3U() {
       try {
         allChannels = parseM3U(text)
           .map(function (channel) {
+            channel.isParaguay = true;
             return applyChannelRules(channel);
           })
           .filter(function (channel) {
             return !channel.hide;
           })
-          .sort(sortChannels);
+          .sort(function (a, b) {
+            return a.name.localeCompare(b.name, "es");
+          });
 
-        applyFilters();
+        visibleChannels = allChannels;
 
-        statusEl.textContent = allChannels.length + " canales cargados · Paraguay primero";
+        renderChannels();
+
+        statusEl.textContent = allChannels.length + " canales de Paraguay";
 
         setTimeout(function () {
           focusChannel(0);
@@ -137,7 +135,7 @@ function parseM3U(text) {
 
     var tvgId = getAttr(line, "tvg-id");
     var logo = getAttr(line, "tvg-logo");
-    var group = getAttr(line, "group-title") || "Sin categoría";
+    var group = getAttr(line, "group-title") || "Paraguay";
     var country = getAttr(line, "tvg-country");
 
     var url = "";
@@ -161,10 +159,9 @@ function parseM3U(text) {
       group: group,
       country: country,
       url: url,
-      hide: false
+      hide: false,
+      isParaguay: true
     };
-
-    channel.isParaguay = isParaguay(channel);
 
     result.push(channel);
   }
@@ -244,6 +241,10 @@ function applyChannelRules(channel) {
       channel.group = rule.group;
     }
 
+    if (rule.url) {
+      channel.url = rule.url;
+    }
+
     if (rule.forceParaguay === true) {
       channel.isParaguay = true;
     }
@@ -285,76 +286,13 @@ function matchesRule(channel, rule) {
 }
 
 /* =========================
-   PARAGUAY PRIMERO
+   RENDER
 ========================= */
-
-function isParaguay(channel) {
-  var text = normalize([
-    channel.name,
-    channel.originalName,
-    channel.tvgId,
-    channel.group,
-    channel.country
-  ].join(" "));
-
-  return (
-    text.indexOf(".py") !== -1 ||
-    text.indexOf("paraguay") !== -1 ||
-    text.indexOf(" py ") !== -1 ||
-    text.indexOf(";py") !== -1 ||
-    text.indexOf("py;") !== -1 ||
-    text.indexOf("snt") !== -1 ||
-    text.indexOf("telefuturo") !== -1 ||
-    text.indexOf("latele") !== -1 ||
-    text.indexOf("la tele") !== -1 ||
-    text.indexOf("trece") !== -1 ||
-    text.indexOf("unicanal") !== -1 ||
-    text.indexOf("c9n") !== -1 ||
-    text.indexOf("npy") !== -1 ||
-    text.indexOf("abc tv") !== -1 ||
-    text.indexOf("paravision") !== -1 ||
-    text.indexOf("paravisión") !== -1
-  );
-}
-
-function sortChannels(a, b) {
-  if (a.isParaguay !== b.isParaguay) {
-    return a.isParaguay ? -1 : 1;
-  }
-
-  return a.name.localeCompare(b.name, "es");
-}
-
-/* =========================
-   FILTROS Y RENDER
-========================= */
-
-function applyFilters() {
-  var query = normalize(searchInput.value);
-
-  visibleChannels = allChannels.filter(function (channel) {
-    var matchesSearch =
-      !query ||
-      normalize(channel.name).indexOf(query) !== -1 ||
-      normalize(channel.originalName).indexOf(query) !== -1 ||
-      normalize(channel.group).indexOf(query) !== -1 ||
-      normalize(channel.tvgId).indexOf(query) !== -1;
-
-    var matchesFilter =
-      currentFilter === "all" ||
-      (currentFilter === "py" && channel.isParaguay) ||
-      (currentFilter === "favorites" && favoritesHas(channelKey(channel)));
-
-    return matchesSearch && matchesFilter;
-  });
-
-  renderChannels();
-}
 
 function renderChannels() {
   channelsDiv.innerHTML = "";
 
-  statusEl.textContent = visibleChannels.length + " canales encontrados";
+  statusEl.textContent = visibleChannels.length + " canales de Paraguay";
 
   if (visibleChannels.length === 0) {
     channelsDiv.innerHTML = '<div class="status">No hay canales para mostrar.</div>';
@@ -362,9 +300,8 @@ function renderChannels() {
   }
 
   var fragment = document.createDocumentFragment();
-  var max = Math.min(visibleChannels.length, 1000);
 
-  for (var i = 0; i < max; i++) {
+  for (var i = 0; i < visibleChannels.length; i++) {
     var channel = visibleChannels[i];
 
     var button = document.createElement("button");
@@ -375,16 +312,13 @@ function renderChannels() {
       button.classList.add("active");
     }
 
-    var favoriteMark = favoritesHas(channelKey(channel)) ? "★" : "";
     var logoHtml = getLogoHtml(channel);
 
     button.innerHTML =
       logoHtml +
-      "<div>" +
+      '<div class="channel-info">' +
       '<div class="channel-name">' + escapeHtml(channel.name) + "</div>" +
-      '<div class="channel-group">' + escapeHtml(channel.group) + "</div>" +
-      "</div>" +
-      '<div class="badge">' + favoriteMark + "</div>";
+      "</div>";
 
     button.addEventListener("click", createChannelClickHandler(channel, i));
     button.addEventListener("focus", createChannelFocusHandler(i));
@@ -508,12 +442,30 @@ function playChannel(channel) {
     hls = new Hls({
       enableWorker: false,
       lowLatencyMode: false,
+
+      autoStartLoad: true,
+      startLevel: -1,
+
+      abrEwmaFastLive: 3,
+      abrEwmaSlowLive: 9,
+      abrBandWidthFactor: 0.75,
+      abrBandWidthUpFactor: 0.55,
+
       backBufferLength: 10,
-      maxBufferLength: 15,
-      maxMaxBufferLength: 20,
+      maxBufferLength: 30,
+      maxMaxBufferLength: 45,
+
       manifestLoadingTimeOut: 15000,
       levelLoadingTimeOut: 15000,
-      fragLoadingTimeOut: 20000
+      fragLoadingTimeOut: 20000,
+
+      manifestLoadingMaxRetry: 4,
+      levelLoadingMaxRetry: 4,
+      fragLoadingMaxRetry: 6,
+
+      manifestLoadingRetryDelay: 1000,
+      levelLoadingRetryDelay: 1000,
+      fragLoadingRetryDelay: 1000
     });
 
     var localHls = hls;
@@ -524,11 +476,18 @@ function playChannel(channel) {
     localHls.on(Hls.Events.MANIFEST_PARSED, function () {
       if (localToken !== playToken) return;
 
+      localHls.currentLevel = -1;
+      localHls.nextLevel = -1;
+
       showPlayerStatus("Reproduciendo");
 
       video.play().catch(function () {
         showPlayerStatus("Presiona OK para reproducir");
       });
+    });
+
+    localHls.on(Hls.Events.LEVEL_SWITCHED, function () {
+      if (localToken !== playToken) return;
     });
 
     localHls.on(Hls.Events.ERROR, function (event, data) {
@@ -539,7 +498,7 @@ function playChannel(channel) {
       if (!data.fatal) return;
 
       if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-        showPlayerStatus("Error de red. Reintentando...");
+        showPlayerStatus("Red inestable. Reintentando...");
         localHls.startLoad();
         return;
       }
@@ -566,6 +525,11 @@ function playChannel(channel) {
       video.play().catch(function () {
         showPlayerStatus("Presiona OK para reproducir");
       });
+    };
+
+    video.onerror = function () {
+      if (localToken !== playToken) return;
+      showPlayerStatus("Este canal no se pudo reproducir");
     };
 
   } else {
@@ -635,58 +599,6 @@ function showPlayerStatus(message) {
 }
 
 /* =========================
-   FAVORITOS
-========================= */
-
-function channelKey(channel) {
-  return channel.name + "|" + channel.url;
-}
-
-function loadFavorites() {
-  try {
-    var data = JSON.parse(localStorage.getItem(FAVORITES_KEY) || "[]");
-    return data;
-  } catch (error) {
-    return [];
-  }
-}
-
-function favoritesHas(key) {
-  return favorites.indexOf(key) !== -1;
-}
-
-function favoritesAdd(key) {
-  if (!favoritesHas(key)) {
-    favorites.push(key);
-  }
-}
-
-function favoritesDelete(key) {
-  favorites = favorites.filter(function (item) {
-    return item !== key;
-  });
-}
-
-function saveFavorites() {
-  localStorage.setItem(FAVORITES_KEY, JSON.stringify(favorites));
-}
-
-function toggleFavorite() {
-  if (!currentChannel) return;
-
-  var key = channelKey(currentChannel);
-
-  if (favoritesHas(key)) {
-    favoritesDelete(key);
-  } else {
-    favoritesAdd(key);
-  }
-
-  saveFavorites();
-  renderChannels();
-}
-
-/* =========================
    FOCO CONTROL REMOTO
 ========================= */
 
@@ -739,37 +651,11 @@ function escapeHtml(value) {
 }
 
 /* =========================
-   EVENTOS
+   EVENTOS CONTROL REMOTO
 ========================= */
-
-searchInput.addEventListener("input", function () {
-  applyFilters();
-});
-
-for (var fb = 0; fb < filterButtons.length; fb++) {
-  filterButtons[fb].addEventListener("click", createFilterClickHandler(filterButtons[fb]));
-}
-
-function createFilterClickHandler(button) {
-  return function () {
-    for (var i = 0; i < filterButtons.length; i++) {
-      filterButtons[i].classList.remove("active");
-    }
-
-    button.classList.add("active");
-
-    currentFilter = button.getAttribute("data-filter");
-    applyFilters();
-
-    setTimeout(function () {
-      focusChannel(0);
-    }, 50);
-  };
-}
 
 document.addEventListener("keydown", function (event) {
   var active = document.activeElement;
-  var isInput = active === searchInput;
   var isPlayerOpen = !playerScreen.classList.contains("hidden");
 
   /*
@@ -798,42 +684,31 @@ document.addEventListener("keydown", function (event) {
   /*
     PÁGINA DE LISTA
   */
-  if (event.key === "ArrowDown" && !isInput) {
+  if (event.key === "ArrowDown") {
     event.preventDefault();
     focusChannel(currentIndex + 1);
     return;
   }
 
-  if (event.key === "ArrowUp" && !isInput) {
+  if (event.key === "ArrowUp") {
     event.preventDefault();
     focusChannel(currentIndex - 1);
     return;
   }
 
-  if (event.key === "ArrowRight" && !isInput) {
+  if (event.key === "ArrowRight") {
     event.preventDefault();
     focusChannel(currentIndex + 1);
     return;
   }
 
-  if (event.key === "ArrowLeft" && !isInput) {
+  if (event.key === "ArrowLeft") {
     event.preventDefault();
     focusChannel(currentIndex - 1);
     return;
   }
 
   if (event.key === "Enter") {
-    if (isInput) {
-      event.preventDefault();
-
-      if (visibleChannels.length > 0) {
-        searchInput.blur();
-        focusChannel(0);
-      }
-
-      return;
-    }
-
     if (active && active.classList && active.classList.contains("channel")) {
       var index = Number(active.getAttribute("data-index"));
       var channel = visibleChannels[index];
@@ -846,24 +721,14 @@ document.addEventListener("keydown", function (event) {
     }
   }
 
-  if (event.key && event.key.toLowerCase() === "s" && !isInput) {
-    event.preventDefault();
-    searchInput.focus();
-    return;
-  }
-
   /*
     Botón atrás desde la lista:
-    si no estás escribiendo, no hace nada.
-    Esto evita que el TV Box cierre la WebView por accidente.
+    no cierra la app.
   */
   if (
-    !isInput &&
-    (
-      event.key === "Escape" ||
-      event.key === "Backspace" ||
-      event.key === "BrowserBack"
-    )
+    event.key === "Escape" ||
+    event.key === "Backspace" ||
+    event.key === "BrowserBack"
   ) {
     event.preventDefault();
     focusCurrentOrFirst();
@@ -880,6 +745,12 @@ video.addEventListener("waiting", function () {
 video.addEventListener("playing", function () {
   if (currentChannel) {
     showPlayerStatus("Reproduciendo");
+  }
+});
+
+video.addEventListener("error", function () {
+  if (currentChannel) {
+    showPlayerStatus("Error reproduciendo canal");
   }
 });
 
